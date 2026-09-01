@@ -1,3 +1,4 @@
+import type { GitRuntimeOptions } from './git-runtime-options'
 import { canonicalWorktreePath } from './worktree-path-comparison'
 import { detectSparseCheckout } from './worktree-sparse-state'
 
@@ -23,6 +24,10 @@ import { detectSparseCheckout } from './worktree-sparse-state'
 //    on the rare edge that actually flipped, rather than partial state that could quietly diverge.
 //  - App cold start: the map starts empty, so the first read is always a fresh detect.
 const SPARSE_CHECKOUT_CACHE_RECONCILE_INTERVAL_MS = 5 * 60_000
+
+// The distro is a property of the repo the listing ran against, so it stays out of the cache key:
+// every read for a given `repoPath` carries the same one.
+type SparseCheckoutProbeOptions = Pick<GitRuntimeOptions, 'wslDistro'>
 
 type SparseCheckoutCacheEntry = {
   isSparse: boolean
@@ -53,12 +58,13 @@ export function onSparseCheckoutStateChanged(
 /** Cached wrapper around {@link detectSparseCheckout}; see module doc for invalidation coverage. */
 export async function detectSparseCheckoutCached(
   repoPath: string,
-  worktreePath: string
+  worktreePath: string,
+  options: SparseCheckoutProbeOptions = {}
 ): Promise<boolean> {
   const key = cacheKey(repoPath, worktreePath)
   const cached = sparseCheckoutStateCache.get(key)
   if (!cached) {
-    const isSparse = await detectSparseCheckout(worktreePath)
+    const isSparse = await detectSparseCheckout(worktreePath, options)
     sparseCheckoutStateCache.set(key, { isSparse, cachedAt: Date.now() })
     return isSparse
   }
@@ -67,7 +73,7 @@ export async function detectSparseCheckoutCached(
   }
   // Stale-while-revalidate: serve the still-cached value now and correct it in the background,
   // deduplicated so concurrent readers past the window don't each start their own probe.
-  cached.revalidating ??= revalidateInBackground(key, repoPath, worktreePath, cached)
+  cached.revalidating ??= revalidateInBackground(key, repoPath, worktreePath, cached, options)
   return cached.isSparse
 }
 
@@ -75,10 +81,11 @@ async function revalidateInBackground(
   key: string,
   repoPath: string,
   worktreePath: string,
-  startingEntry: SparseCheckoutCacheEntry
+  startingEntry: SparseCheckoutCacheEntry,
+  options: SparseCheckoutProbeOptions
 ): Promise<void> {
   try {
-    const isSparse = await detectSparseCheckout(worktreePath)
+    const isSparse = await detectSparseCheckout(worktreePath, options)
     // Identity guard against a race with an explicit invalidate/clear -- or a remove+recreate at
     // the same path that repopulates the key with a fresh cold read -- while this was in flight.
     // A `has()`/presence check can't tell "still mine" from "someone else's fresh value" sharing

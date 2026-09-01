@@ -217,7 +217,7 @@ describe('invalidateSparseCheckoutState', () => {
     await detectSparseCheckoutCached('/repo', '/repo/wt-a')
     await detectSparseCheckoutCached('/repo', '/repo/wt-b')
     expect(detectSparseCheckoutMock).toHaveBeenCalledTimes(1)
-    expect(detectSparseCheckoutMock).toHaveBeenCalledWith('/repo/wt-a')
+    expect(detectSparseCheckoutMock).toHaveBeenCalledWith('/repo/wt-a', {})
   })
 })
 
