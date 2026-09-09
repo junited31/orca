@@ -50,10 +50,13 @@ export abstract class RateLimitServiceFetchPolicy extends RateLimitServiceFetchT
     fresh: ProviderRateLimits,
     previous: ProviderRateLimits | null
   ): ProviderRateLimits {
-    // Why: a live statusline post can land while an OAuth cycle is in flight; a failed fetch must not
-    // roll the bar back to the pre-cycle snapshot or flip the just-refreshed live data to error.
     const current = this.state.claude
-    if (fresh.status !== 'ok' && current && this.isLiveClaudeUsageFresh(current)) {
+    // Why: statusline data is fresher than an OAuth/CLI result whose cycle overlapped its live-feed window; applying it could roll the bar back or flip fresh live data to error.
+    if (current && this.isLiveClaudeUsageFresh(current)) {
+      // Why: statusline payloads omit Claude's Fable weekly window; preserve a successful fetched window when retaining fresher live data.
+      if (fresh.status === 'ok' && fresh.fableWeekly) {
+        return { ...current, fableWeekly: fresh.fableWeekly }
+      }
       return current
     }
     return this.applyStalePolicy(fresh, previous)
@@ -122,7 +125,7 @@ export abstract class RateLimitServiceFetchPolicy extends RateLimitServiceFetchT
         session,
         weekly,
         // Why: the statusline payload has no Fable scoped window; keep the last OAuth-provided one visible.
-        // Tradeoff: while live posts keep the OAuth poll gated, fableWeekly stays frozen until the session idles past the freshness window.
+        // Tradeoff: automated live-gated polls leave fableWeekly unchanged; a user/target-forced fetch can refresh it.
         fableWeekly: previous?.fableWeekly ?? null,
         updatedAt: Date.now(),
         error: null,

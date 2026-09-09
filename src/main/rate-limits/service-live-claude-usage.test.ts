@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProviderRateLimits } from '../../shared/rate-limit-types'
+import { MIN_REFETCH_MS } from './service/service-types'
 import { RateLimitService } from './service'
 import { fetchClaudeRateLimits } from './claude-fetcher'
 import { fetchCodexRateLimits } from './codex-fetcher'
@@ -252,6 +253,111 @@ describe('RateLimitService', () => {
     }
   })
 
+  it('keeps a fresh live snapshot over a successful forced fetch', async () => {
+    vi.useFakeTimers()
+    try {
+      const oauthSessionReset = 1738425600
+      const oauthWeeklyReset = 1739030400
+      const oauthFableWeeklyReset = 1739721600
+      const liveSessionReset = 1738429200
+      const liveWeeklyReset = 1739649600
+      vi.mocked(fetchClaudeRateLimits)
+        .mockResolvedValueOnce(okProvider('claude', 18))
+        .mockResolvedValueOnce({
+          provider: 'claude',
+          session: {
+            usedPercent: 72,
+            windowMinutes: 300,
+            resetsAt: oauthSessionReset * 1000,
+            resetDescription: null
+          },
+          weekly: {
+            usedPercent: 88,
+            windowMinutes: 10080,
+            resetsAt: oauthWeeklyReset * 1000,
+            resetDescription: null
+          },
+          fableWeekly: {
+            usedPercent: 64,
+            windowMinutes: 10080,
+            resetsAt: oauthFableWeeklyReset * 1000,
+            resetDescription: null
+          },
+          updatedAt: Date.now(),
+          error: null,
+          status: 'ok',
+          usageMetadata: { source: 'oauth' }
+        })
+      mockFreshBackgroundProviderFetches()
+
+      const service = new RateLimitService()
+      await service.refresh()
+
+      service.ingestLiveClaudeRateLimits({
+        configDir: null,
+        fiveHour: { used_percentage: 23.5, resets_at: liveSessionReset },
+        sevenDay: { used_percentage: 41.2, resets_at: liveWeeklyReset }
+      })
+
+      await service.refresh()
+
+      expect(fetchClaudeRateLimits).toHaveBeenCalledTimes(2)
+      const claude = service.getState().claude
+      expect(claude?.session?.usedPercent).toBe(23.5)
+      expect(claude?.session?.resetsAt).toBe(liveSessionReset * 1000)
+      expect(claude?.weekly?.usedPercent).toBe(41.2)
+      expect(claude?.fableWeekly?.usedPercent).toBe(64)
+      expect(claude?.fableWeekly?.resetsAt).toBe(oauthFableWeeklyReset * 1000)
+      expect(claude?.weekly?.resetsAt).toBe(liveWeeklyReset * 1000)
+      expect(claude?.usageMetadata?.source).toBe('live-session')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('allows a successful fetch after the live snapshot becomes stale', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchedReset = 1738425600
+      vi.mocked(fetchClaudeRateLimits)
+        .mockResolvedValueOnce(okProvider('claude', 18))
+        .mockResolvedValueOnce({
+          provider: 'claude',
+          session: {
+            usedPercent: 84,
+            windowMinutes: 300,
+            resetsAt: fetchedReset * 1000,
+            resetDescription: null
+          },
+          weekly: null,
+          updatedAt: Date.now(),
+          error: null,
+          status: 'ok',
+          usageMetadata: { source: 'oauth' }
+        })
+      mockFreshBackgroundProviderFetches()
+
+      const service = new RateLimitService()
+      await service.refresh()
+
+      service.ingestLiveClaudeRateLimits({
+        configDir: null,
+        fiveHour: { used_percentage: 23.5 },
+        sevenDay: null
+      })
+
+      await vi.advanceTimersByTimeAsync(MIN_REFETCH_MS + 1)
+      await service.refresh()
+
+      const claude = service.getState().claude
+      expect(claude?.session?.usedPercent).toBe(84)
+      expect(claude?.session?.resetsAt).toBe(fetchedReset * 1000)
+      expect(claude?.usageMetadata?.source).toBe('oauth')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps a populated weekly bar when a live post carries only the five-hour window', async () => {
     vi.useFakeTimers()
     try {
@@ -286,7 +392,7 @@ describe('RateLimitService', () => {
       const staleClaudeFetch = deferred<ProviderRateLimits>()
       vi.mocked(fetchClaudeRateLimits)
         .mockImplementationOnce(() => staleClaudeFetch.promise)
-        .mockImplementation(async () => okProvider('claude', 18))
+        .mockImplementation(async () => okProvider('claude', 55))
       mockFreshBackgroundProviderFetches()
 
       const authGate = deferred<void>()
@@ -331,14 +437,15 @@ describe('RateLimitService', () => {
 
       staleClaudeFetch.resolve(okProvider('claude', 18))
       await Promise.all([firstRefresh, switchPromise])
+      expect(service.getState().claude?.session?.usedPercent).toBe(55)
 
       // The incoming account's own sessions still attribute correctly.
       service.ingestLiveClaudeRateLimits({
         configDir: '/incoming/.claude',
-        fiveHour: { used_percentage: 55 },
+        fiveHour: { used_percentage: 71 },
         sevenDay: null
       })
-      expect(service.getState().claude?.session?.usedPercent).toBe(55)
+      expect(service.getState().claude?.session?.usedPercent).toBe(71)
     } finally {
       vi.useRealTimers()
     }
