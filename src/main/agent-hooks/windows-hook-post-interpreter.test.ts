@@ -90,9 +90,14 @@ describe('Windows managed hook post interpreter', () => {
     } else {
       process.env.ORCA_USER_DATA_PATH = previousUserDataPath
     }
-    rmSync(isolatedUserDataDir, { recursive: true, force: true })
+    rmSync(isolatedUserDataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100
+    })
     homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir())
-    rmSync(home, { recursive: true, force: true })
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
     home = ''
   })
 
