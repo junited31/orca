@@ -49,6 +49,12 @@ function mockLocalWslPathBridge(wslHome: string): void {
       }
     }
   })
+  vi.doMock('../codex/wsl-codex-session-bridge', () => ({
+    startWslCodexSessionBridgeInBackground: vi.fn(() => Promise.resolve())
+  }))
+  vi.doMock('./legacy-wsl-runtime-auth-drain', () => ({
+    startLegacyWslRuntimeAuthDrain: vi.fn(() => Promise.resolve())
+  }))
 }
 
 describe('CodexRuntimeHomeService', () => {
