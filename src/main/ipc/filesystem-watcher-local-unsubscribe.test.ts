@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as path from 'node:path'
 import type * as ParcelWatcherProcess from './parcel-watcher-process'
 
 const { handleMock } = vi.hoisted(() => ({
@@ -601,8 +602,14 @@ describe('local filesystem watcher unsubscribe cleanup', () => {
     replacementCallback(null, [{ type: 'update', path: '/tmp/repo/retry.txt' }] as never)
     await vi.waitFor(() =>
       expect(replacementSender.send).toHaveBeenCalledWith('fs:changed', {
-        worktreePath: '/tmp/repo',
-        events: [{ kind: 'update', absolutePath: '/tmp/repo/retry.txt', isDirectory: true }]
+        worktreePath: path.resolve('/tmp/repo'),
+        events: [
+          {
+            kind: 'update',
+            absolutePath: path.resolve('/tmp/repo/retry.txt'),
+            isDirectory: true
+          }
+        ]
       })
     )
   })
