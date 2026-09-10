@@ -112,7 +112,11 @@ function stripGitHeaderQuoteDelimiters(value) {
   let inQuote = false
   for (let index = 0; index < value.length; index += 1) {
     const character = value[index]
-    const escaped = index > 0 && value[index - 1] === '\\'
+    let precedingBackslashes = 0
+    for (let previous = index - 1; previous >= 0 && value[previous] === '\\'; previous -= 1) {
+      precedingBackslashes += 1
+    }
+    const escaped = precedingBackslashes % 2 === 1
     const opensToken = !inQuote && character === '"' && (index === 0 || value[index - 1] === ' ')
     const closesToken =
       inQuote &&

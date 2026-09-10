@@ -191,6 +191,13 @@ describe('pnpm diff format', () => {
       'diff --git a/with"quote/name b/with"quote/name'
     )
   })
+  it('strips delimiters after even backslash runs', () => {
+    const trailingSlashDiff = String.raw`diff --git "a/dir\\" "b/dir\\"`
+
+    expect(normalizePnpmDiff(trailingSlashDiff, '/pristine', '/patched')).toContain(
+      'diff --git a/dir/ b/dir/'
+    )
+  })
 
   it('drops a trailing no-newline marker and .DS_Store entries', () => {
     const withMarker = 'diff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b\n\\ No newline at end of file\n'
