@@ -93,11 +93,11 @@ describe('Windows managed hook post interpreter', () => {
     rmSync(isolatedUserDataDir, {
       recursive: true,
       force: true,
-      maxRetries: 5,
-      retryDelay: 100
+      maxRetries: 20,
+      retryDelay: 250
     })
     homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir())
-    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+    rmSync(home, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
     home = ''
   })
 
