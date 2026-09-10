@@ -888,7 +888,7 @@ describe('cross-version structured agent sessions', () => {
       for (const host of hosts.splice(0)) {
         await host.flushAllStreamedEvents()
       }
-      await rm(root, { recursive: true, force: true })
+      await rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 })
     })
 
     it('resumes from the cursor the client held, with no snapshot and no replay', async () => {
