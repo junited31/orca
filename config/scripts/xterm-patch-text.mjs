@@ -58,6 +58,17 @@ function trimSurroundingSlashes(value) {
   return value[0] === '/' || value.endsWith('/') ? value.replace(/^\/|\/$/g, '') : value
 }
 
+function normalizeWindowsDiffHeaders(stdout) {
+  return stdout.replace(/^(diff --git |--- |\+\+\+ )(.+)$/gm, (line, prefix, paths) => {
+    if (!paths.includes('\\')) {
+      return line
+    }
+    // Git quotes Windows paths because the backslashes are special. pnpm's
+    // normalized patch uses portable slash-separated, unquoted paths instead.
+    return `${prefix}${paths.replaceAll('\\', '/').replaceAll('"', '')}`
+  })
+}
+
 /**
  * Reproduces pnpm's post-processing of the raw `git diff` output: strip the two
  * scratch folder prefixes, drop a trailing no-newline marker, and remove
@@ -66,7 +77,7 @@ function trimSurroundingSlashes(value) {
 export function normalizePnpmDiff(stdout, folderA, folderB) {
   const a = folderA.replace(/\\/g, '/')
   const b = folderB.replace(/\\/g, '/')
-  return stdout
+  return normalizeWindowsDiffHeaders(stdout)
     .replace(new RegExp(`(a|b)(${escapeRegExp(`/${trimSurroundingSlashes(a)}/`)})`, 'g'), '$1/')
     .replace(new RegExp(`(a|b)${escapeRegExp(`/${trimSurroundingSlashes(b)}/`)}`, 'g'), '$1/')
     .replace(new RegExp(escapeRegExp(`${a}/`), 'g'), '')
