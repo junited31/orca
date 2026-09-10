@@ -177,7 +177,8 @@ describe('pnpm diff format', () => {
     ].join('\n')
 
     const normalized = normalizePnpmDiff(escapedDiff, '/pristine', '/patched')
-    expect(normalized).toContain('diff --git a/naéme/widget.js b/naéme/widget.js')
+    const eAcute = String.fromCodePoint(0xe9)
+    expect(normalized).toContain(`diff --git a/na${eAcute}me/widget.js b/na${eAcute}me/widget.js`)
     expect(normalized).toContain('--- \\303\\251me')
   })
 
