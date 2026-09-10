@@ -22,6 +22,26 @@ import {
   makeTreeWritable,
   shareTree
 } from './space-sharing-copy.mjs'
+function canCreateFileSymlinks(): boolean {
+  const probeDir = mkdtempSync(path.join(tmpdir(), 'orca-symlink-capability-'))
+  const targetPath = path.join(probeDir, 'target')
+  const linkPath = path.join(probeDir, 'link')
+  try {
+    writeFileSync(targetPath, '')
+    symlinkSync(targetPath, linkPath)
+    return true
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (process.platform === 'win32' && (code === 'EPERM' || code === 'EACCES')) {
+      return false
+    }
+    throw error
+  } finally {
+    rmSync(probeDir, { recursive: true, force: true })
+  }
+}
+
+const describeWithSymlinks = describe.skipIf(!canCreateFileSymlinks())
 
 const roots: string[] = []
 
@@ -41,7 +61,7 @@ function makeTree(): { root: string; source: string } {
   return { root, source }
 }
 
-describe('shareTree', () => {
+describeWithSymlinks('shareTree', () => {
   // Mechanism selection is asserted with stubs, because the real mechanisms only exist on the host
   // that owns them: /bin/cp -c is macOS-only and `cp --reflink` is GNU-only.
   it('prefers the strongest isolation each platform offers', () => {
@@ -107,7 +127,7 @@ describe('shareTree', () => {
   })
 })
 
-describe('hardlinkTree', () => {
+describeWithSymlinks('hardlinkTree', () => {
   it('shares inodes for files but recreates symlinks as their own entries', () => {
     const { root, source } = makeTree()
     const destination = path.join(root, 'linked')
@@ -127,7 +147,7 @@ describe('hardlinkTree', () => {
   })
 })
 
-describe('makeTreeReadOnly', () => {
+describeWithSymlinks('makeTreeReadOnly', () => {
   it('drops write permission on files while leaving directories traversable and unlinkable', () => {
     const { source } = makeTree()
     makeTreeReadOnly(source)
@@ -171,7 +191,7 @@ describe('makeTreeReadOnly', () => {
   )
 })
 
-describe('makeTreeWritable', () => {
+describeWithSymlinks('makeTreeWritable', () => {
   it.runIf(process.platform !== 'win32')('undoes makeTreeReadOnly for the owner', () => {
     const { source } = makeTree()
     makeTreeReadOnly(source)
@@ -191,7 +211,7 @@ describe('makeTreeWritable', () => {
   })
 })
 
-describe('copyPrivateTree', () => {
+describeWithSymlinks('copyPrivateTree', () => {
   it.runIf(process.platform !== 'win32')(
     'hands back a tree the caller can patch, even from a write-protected source',
     () => {
