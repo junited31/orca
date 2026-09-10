@@ -771,6 +771,7 @@ describe('cross-version structured agent sessions', () => {
     let root: string
     let store: AgentSessionRecordStore
     let runtime: unknown
+    const hosts: StructuredAgentSessionHost[] = []
 
     /** Phase 2 owns provider processes; the adapter is the only stub here. */
     function adapter(): StructuredAgentSessionAdapter {
@@ -824,6 +825,7 @@ describe('cross-version structured agent sessions', () => {
         probeOwner: async () => ({ outcome: 'pid-absent' }),
         now: () => NOW
       })
+      hosts.push(host)
       setStructuredAgentSessionHost(host)
       return host
     }
@@ -883,6 +885,7 @@ describe('cross-version structured agent sessions', () => {
 
     afterEach(async () => {
       setStructuredAgentSessionHost(null)
+      await Promise.all(hosts.splice(0).map((host) => host.flushAllStreamedEvents()))
       await rm(root, { recursive: true, force: true })
     })
 
