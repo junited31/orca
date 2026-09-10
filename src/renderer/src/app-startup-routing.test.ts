@@ -583,8 +583,8 @@ describe('renderer startup runtime routing', () => {
     expect(checkpointBlock).toContain(
       'const shutdownCheckpointPersist = createShutdownCheckpointPersist({'
     )
-    expect(checkpointBlock).toContain(
-      'buildWorkspaceSessionHostSnapshots(\n          buildWorkspaceSessionPayload(freshState),\n          freshState\n        )'
+    expect(checkpointBlock.replace(/\s+/g, ' ')).toContain(
+      'buildWorkspaceSessionHostSnapshots( buildWorkspaceSessionPayload(freshState), freshState )'
     )
     expect(checkpointBlock).toContain('buildUiPatch: () => buildActiveViewUnloadPatch(')
     // Why pin the exact gate: the degrade tiers must arm only for intentional
