@@ -219,6 +219,8 @@ describe('agent hook spool', () => {
     }
   })
 
+  // Windows hook execution is covered by text assertions; this POSIX shell replay remains
+  // intentionally POSIX-only until a Windows .cmd spool smoke test exists.
   it.skipIf(process.platform === 'win32')(
     'spools when the endpoint is present but the receiver is unavailable',
     () => {

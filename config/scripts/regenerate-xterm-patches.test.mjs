@@ -181,6 +181,16 @@ describe('pnpm diff format', () => {
     expect(normalized).toContain(`diff --git a/na${eAcute}me/widget.js b/na${eAcute}me/widget.js`)
     expect(normalized).toContain('--- \\303\\251me')
   })
+  it('preserves literal quotes inside quoted Windows path headers', () => {
+    const quotedDiff = String.raw`diff --git "a/with\"quote\\name" "b/with\"quote\\name"
+--- "a/with\"quote\\name"
++++ "b/with\"quote\\name"
+@@ -1 +1 @@`
+
+    expect(normalizePnpmDiff(quotedDiff, '/pristine', '/patched')).toContain(
+      'diff --git a/with"quote/name b/with"quote/name'
+    )
+  })
 
   it('drops a trailing no-newline marker and .DS_Store entries', () => {
     const withMarker = 'diff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b\n\\ No newline at end of file\n'

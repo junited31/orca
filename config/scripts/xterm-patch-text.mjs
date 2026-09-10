@@ -107,6 +107,26 @@ function decodeGitQuotedPath(value) {
   }
   return decoded
 }
+function stripGitHeaderQuoteDelimiters(value) {
+  let stripped = ''
+  let inQuote = false
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    const escaped = index > 0 && value[index - 1] === '\\'
+    const opensToken = !inQuote && character === '"' && (index === 0 || value[index - 1] === ' ')
+    const closesToken =
+      inQuote &&
+      character === '"' &&
+      !escaped &&
+      (index === value.length - 1 || value[index + 1] === ' ')
+    if (opensToken || closesToken) {
+      inQuote = !inQuote
+      continue
+    }
+    stripped += character
+  }
+  return stripped
+}
 
 function normalizeWindowsDiffHeaders(stdout) {
   let inHunk = false
@@ -129,15 +149,15 @@ function normalizeWindowsDiffHeaders(stdout) {
         return line
       }
       // Git quotes Windows paths because the backslashes are special. pnpm's
-      // normalized patch uses portable slash-separated, unquoted paths instead.
-      return `${match[1]}${decodeGitQuotedPath(match[2])
+      // normalized patch uses portable slash-separated paths while preserving
+      // literal quotes that belong to a filename.
+      const unquoted = stripGitHeaderQuoteDelimiters(match[2])
+      return `${match[1]}${decodeGitQuotedPath(unquoted)
         .replaceAll('\\', '/')
-        .replace(/\/{2,}/g, '/')
-        .replaceAll('"', '')}`
+        .replace(/\/{2,}/g, '/')}`
     })
     .join('\n')
 }
-
 /**
  * Reproduces pnpm's post-processing of the raw `git diff` output: strip the two
  * scratch folder prefixes, drop a trailing no-newline marker, and remove
