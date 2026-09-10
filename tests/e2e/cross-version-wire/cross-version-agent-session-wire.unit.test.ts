@@ -580,6 +580,7 @@ describe('cross-version structured agent sessions', () => {
   describe('an old client against a structured-owned AI Vault row', () => {
     let root: string
     let store: AgentSessionRecordStore
+    let host: StructuredAgentSessionHost
     let runtime: Record<string, unknown>
     let createMobileSessionTerminal: ReturnType<typeof vi.fn>
 
@@ -589,7 +590,7 @@ describe('cross-version structured agent sessions', () => {
         directory: join(root, 'store'),
         hostId: 'local'
       })
-      const host = new StructuredAgentSessionHost({
+      host = new StructuredAgentSessionHost({
         store,
         adapter: {
           acquire: async ({ fence }) => ({
@@ -658,6 +659,7 @@ describe('cross-version structured agent sessions', () => {
 
     afterEach(async () => {
       setStructuredAgentSessionHost(null)
+      await host.flushAllStreamedEvents()
       await rm(root, { recursive: true, force: true })
     })
 
