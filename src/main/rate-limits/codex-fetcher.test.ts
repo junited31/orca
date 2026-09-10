@@ -381,11 +381,15 @@ describe('fetchCodexRateLimits', () => {
 
   it('removes RPC listeners when the app-server timeout settles', async () => {
     const rpcChild = makeRpcChild()
+    // Why: keep the fake alive through graceful stdin shutdown so timeout
+    // cleanup exercises force termination on Windows as well as POSIX hosts.
+    rpcChild.stdin.end.mockImplementation(() => {})
     childSpawnMock.mockReturnValue(rpcChild)
 
     const resultPromise = fetchCodexRateLimits({ allowPtyFallback: false })
     // Why: without an initialize response only the 30s boot deadline fires.
     await vi.advanceTimersByTimeAsync(30_000)
+    await vi.advanceTimersByTimeAsync(5_000)
 
     await expect(resultPromise).resolves.toMatchObject({
       provider: 'codex',
