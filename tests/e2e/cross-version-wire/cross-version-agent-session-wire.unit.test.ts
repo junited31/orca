@@ -149,6 +149,7 @@ let baselineRef: string
 let current: AgentSessionWireBuild
 let baseline: AgentSessionWireBuild
 let releasedCurrent: AgentSessionWireBuild
+let operations = 0
 
 beforeAll(async () => {
   baselineRef = resolveBaselineReleaseRef()
