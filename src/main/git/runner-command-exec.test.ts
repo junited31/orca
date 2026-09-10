@@ -369,30 +369,33 @@ describe('runner execFile timeout handling', () => {
     expect(spawnMock).toHaveBeenCalledTimes(1)
   })
 
-  it('kills an active gh execution when its caller aborts', async () => {
-    const child = createMockChildProcess(1234)
-    mockWedgedCliSpawn(child)
-    const processKill = mockProcessGroupSignals()
-    try {
-      const controller = new AbortController()
-      const promise = ghExecFileAsync(['api', 'repos/stablyai/orca/issues/5388'], {
-        cwd: '/repo',
-        signal: controller.signal
-      })
-      const rejection = expect(promise).rejects.toMatchObject({ name: 'AbortError' })
+  it.skipIf(process.platform === 'win32')(
+    'kills an active gh execution when its caller aborts',
+    async () => {
+      const child = createMockChildProcess(1234)
+      mockWedgedCliSpawn(child)
+      const processKill = mockProcessGroupSignals()
+      try {
+        const controller = new AbortController()
+        const promise = ghExecFileAsync(['api', 'repos/stablyai/orca/issues/5388'], {
+          cwd: '/repo',
+          signal: controller.signal
+        })
+        const rejection = expect(promise).rejects.toMatchObject({ name: 'AbortError' })
 
-      await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled())
-      controller.abort()
-      await vi.advanceTimersByTimeAsync(2_000)
+        await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled())
+        controller.abort()
+        await vi.advanceTimersByTimeAsync(2_000)
 
-      await rejection
-      expect(processKill).toHaveBeenCalledWith(-1234, undefined)
-    } finally {
-      processKill.mockRestore()
+        await rejection
+        expect(processKill).toHaveBeenCalledWith(-1234, undefined)
+      } finally {
+        processKill.mockRestore()
+      }
     }
-  })
+  )
 
-  it('honors explicit gh timeouts', async () => {
+  it.skipIf(process.platform === 'win32')('honors explicit gh timeouts', async () => {
     const child = createMockChildProcess(1234)
     mockWedgedCliSpawn(child)
     const processKill = mockProcessGroupSignals()
