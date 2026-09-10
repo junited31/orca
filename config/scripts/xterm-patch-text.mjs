@@ -65,7 +65,10 @@ function normalizeWindowsDiffHeaders(stdout) {
     }
     // Git quotes Windows paths because the backslashes are special. pnpm's
     // normalized patch uses portable slash-separated, unquoted paths instead.
-    return `${prefix}${paths.replaceAll('\\', '/').replaceAll('"', '')}`
+    return `${prefix}${paths
+      .replaceAll('\\', '/')
+      .replace(/\/{2,}/g, '/')
+      .replaceAll('"', '')}`
   })
 }
 
