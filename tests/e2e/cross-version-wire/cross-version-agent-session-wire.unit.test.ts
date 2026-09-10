@@ -885,7 +885,9 @@ describe('cross-version structured agent sessions', () => {
 
     afterEach(async () => {
       setStructuredAgentSessionHost(null)
-      await Promise.all(hosts.splice(0).map((host) => host.flushAllStreamedEvents()))
+      for (const host of hosts.splice(0)) {
+        await host.flushAllStreamedEvents()
+      }
       await rm(root, { recursive: true, force: true })
     })
 
