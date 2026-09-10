@@ -57,6 +57,7 @@ describe('CodexRuntimeHomeService', () => {
   })
 
   afterEach(() => {
+    vi.doUnmock('../../shared/wsl-paths')
     teardownRuntimeHomeTest()
   })
 
