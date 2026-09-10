@@ -65,8 +65,33 @@ describe('local filesystem watcher unsubscribe cleanup', () => {
     vi.mocked(subscribeParcelWatcher).mockReset()
     vi.mocked(subscribeViaWatcherProcess).mockReset()
     vi.mocked(subscribeViaWatcherProcess).mockImplementation(
-      (dir, callback, opts) =>
-        vi.mocked(subscribeParcelWatcher)(dir, callback as never, opts as never) as never
+      (dir, callback, opts, hooks) =>
+        new Promise((resolve, reject) => {
+          let aborted = false
+          const onAbort = () => {
+            aborted = true
+            reject(new Error('subscribe aborted'))
+          }
+          hooks?.signal?.addEventListener('abort', onAbort, { once: true })
+          Promise.resolve(
+            vi.mocked(subscribeParcelWatcher)(dir, callback as never, opts as never)
+          ).then(
+            (subscription) => {
+              hooks?.signal?.removeEventListener('abort', onAbort)
+              if (aborted) {
+                void subscription?.unsubscribe?.()
+                return
+              }
+              resolve(subscription as never)
+            },
+            (error) => {
+              hooks?.signal?.removeEventListener('abort', onAbort)
+              if (!aborted) {
+                reject(error)
+              }
+            }
+          )
+        }) as never
     )
     for (const key of Object.keys(handlers)) {
       delete handlers[key]
