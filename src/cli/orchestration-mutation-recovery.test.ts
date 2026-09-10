@@ -45,8 +45,8 @@ describe('orchestration mutation recovery', () => {
       result.message.indexOf(renderCommand(['orca', 'orchestration', 'worker-show']))
     ).toBeLessThan(result.message.indexOf(renderCommand(['orca', 'orchestration', 'worker-start'])))
     expect((result.data as { nextSteps?: string[] }).nextSteps).toEqual([
-      'Run orca orchestration worker-show --dispatch dispatch_1 --json before retrying.',
-      'After inspecting the Dispatch, if keyed recovery is still needed, run orca orchestration worker-start --task task_1 --retry-request request_1. --retry-request reuses the same operation identity so Orca can replay, join, or safely recover it without starting a separate duplicate.'
+      `Run ${renderCommand(['orca', 'orchestration', 'worker-show', '--dispatch', 'dispatch_1', '--json'])} before retrying.`,
+      `After inspecting the Dispatch, if keyed recovery is still needed, run ${renderCommand(['orca', 'orchestration', 'worker-start', '--task', 'task_1', '--retry-request', 'request_1'])}. --retry-request reuses the same operation identity so Orca can replay, join, or safely recover it without starting a separate duplicate.`
     ])
   })
 
