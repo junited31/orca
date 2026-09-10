@@ -59,17 +59,33 @@ function trimSurroundingSlashes(value) {
 }
 
 function normalizeWindowsDiffHeaders(stdout) {
-  return stdout.replace(/^(diff --git |--- |\+\+\+ )(.+)$/gm, (line, prefix, paths) => {
-    if (!paths.includes('\\')) {
-      return line
-    }
-    // Git quotes Windows paths because the backslashes are special. pnpm's
-    // normalized patch uses portable slash-separated, unquoted paths instead.
-    return `${prefix}${paths
-      .replaceAll('\\', '/')
-      .replace(/\/{2,}/g, '/')
-      .replaceAll('"', '')}`
-  })
+  let inHunk = false
+  return stdout
+    .split('\n')
+    .map((line) => {
+      if (line.startsWith('diff --git ')) {
+        inHunk = false
+      } else if (line.startsWith('@@ ')) {
+        inHunk = true
+      }
+      if (
+        inHunk ||
+        (!line.startsWith('diff --git ') && !line.startsWith('--- ') && !line.startsWith('+++ '))
+      ) {
+        return line
+      }
+      const match = /^(diff --git |--- |\+\+\+ )("?[ab]\/.*)$/.exec(line)
+      if (!match || !match[2].includes('\\')) {
+        return line
+      }
+      // Git quotes Windows paths because the backslashes are special. pnpm's
+      // normalized patch uses portable slash-separated, unquoted paths instead.
+      return `${match[1]}${match[2]
+        .replaceAll('\\', '/')
+        .replace(/\/{2,}/g, '/')
+        .replaceAll('"', '')}`
+    })
+    .join('\n')
 }
 
 /**

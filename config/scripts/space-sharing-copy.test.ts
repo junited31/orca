@@ -41,7 +41,7 @@ function canCreateFileSymlinks(): boolean {
   }
 }
 
-const describeWithSymlinks = describe.skipIf(!canCreateFileSymlinks())
+const symlinksAvailable = canCreateFileSymlinks()
 
 const roots: string[] = []
 
@@ -57,11 +57,13 @@ function makeTree(): { root: string; source: string } {
   const source = path.join(root, 'source')
   mkdirSync(path.join(source, 'nested'), { recursive: true })
   writeFileSync(path.join(source, 'nested', 'file'), 'contents')
-  symlinkSync(path.join('nested', 'file'), path.join(source, 'relative-link'))
+  if (symlinksAvailable) {
+    symlinkSync(path.join('nested', 'file'), path.join(source, 'relative-link'))
+  }
   return { root, source }
 }
 
-describeWithSymlinks('shareTree', () => {
+describe('shareTree', () => {
   // Mechanism selection is asserted with stubs, because the real mechanisms only exist on the host
   // that owns them: /bin/cp -c is macOS-only and `cp --reflink` is GNU-only.
   it('prefers the strongest isolation each platform offers', () => {
@@ -76,13 +78,18 @@ describeWithSymlinks('shareTree', () => {
     )
   })
 
-  it('keeps relative symlinks unresolved on whatever this host supports', () => {
-    const { root, source } = makeTree()
-    const destination = path.join(root, 'shared')
-    expect(shareTree(source, destination)).toBeTruthy()
-    expect(readFileSync(path.join(destination, 'nested', 'file'), 'utf8')).toBe('contents')
-    expect(readlinkSync(path.join(destination, 'relative-link'))).toBe(path.join('nested', 'file'))
-  })
+  it.skipIf(!symlinksAvailable)(
+    'keeps relative symlinks unresolved on whatever this host supports',
+    () => {
+      const { root, source } = makeTree()
+      const destination = path.join(root, 'shared')
+      expect(shareTree(source, destination)).toBeTruthy()
+      expect(readFileSync(path.join(destination, 'nested', 'file'), 'utf8')).toBe('contents')
+      expect(readlinkSync(path.join(destination, 'relative-link'))).toBe(
+        path.join('nested', 'file')
+      )
+    }
+  )
 
   it('falls from reflink to hardlink on Linux, where ext4 has no reflinks', () => {
     const { root, source } = makeTree()
@@ -127,16 +134,21 @@ describeWithSymlinks('shareTree', () => {
   })
 })
 
-describeWithSymlinks('hardlinkTree', () => {
-  it('shares inodes for files but recreates symlinks as their own entries', () => {
-    const { root, source } = makeTree()
-    const destination = path.join(root, 'linked')
-    hardlinkTree(source, destination)
-    expect(statSync(path.join(destination, 'nested', 'file')).ino).toBe(
-      statSync(path.join(source, 'nested', 'file')).ino
-    )
-    expect(readlinkSync(path.join(destination, 'relative-link'))).toBe(path.join('nested', 'file'))
-  })
+describe('hardlinkTree', () => {
+  it.skipIf(!symlinksAvailable)(
+    'shares inodes for files but recreates symlinks as their own entries',
+    () => {
+      const { root, source } = makeTree()
+      const destination = path.join(root, 'linked')
+      hardlinkTree(source, destination)
+      expect(statSync(path.join(destination, 'nested', 'file')).ino).toBe(
+        statSync(path.join(source, 'nested', 'file')).ino
+      )
+      expect(readlinkSync(path.join(destination, 'relative-link'))).toBe(
+        path.join('nested', 'file')
+      )
+    }
+  )
 
   it('propagates a write through the shared inode, which is why callers must protect it', () => {
     const { root, source } = makeTree()
@@ -147,7 +159,7 @@ describeWithSymlinks('hardlinkTree', () => {
   })
 })
 
-describeWithSymlinks('makeTreeReadOnly', () => {
+describe('makeTreeReadOnly', () => {
   it('drops write permission on files while leaving directories traversable and unlinkable', () => {
     const { source } = makeTree()
     makeTreeReadOnly(source)
@@ -191,7 +203,7 @@ describeWithSymlinks('makeTreeReadOnly', () => {
   )
 })
 
-describeWithSymlinks('makeTreeWritable', () => {
+describe('makeTreeWritable', () => {
   it.runIf(process.platform !== 'win32')('undoes makeTreeReadOnly for the owner', () => {
     const { source } = makeTree()
     makeTreeReadOnly(source)
@@ -211,7 +223,7 @@ describeWithSymlinks('makeTreeWritable', () => {
   })
 })
 
-describeWithSymlinks('copyPrivateTree', () => {
+describe('copyPrivateTree', () => {
   it.runIf(process.platform !== 'win32')(
     'hands back a tree the caller can patch, even from a write-protected source',
     () => {
@@ -238,18 +250,23 @@ describeWithSymlinks('copyPrivateTree', () => {
     expect(result.mechanism === 'reflink' || result.mechanism === null).toBe(true)
   })
 
-  it('copies bytes on a platform with no private mechanism at all', () => {
-    const { root, source } = makeTree()
-    const destination = path.join(root, 'private')
-    const hardlink = vi.fn()
-    expect(copyPrivateTree(source, destination, { platform: 'win32', hardlink })).toEqual({
-      mechanism: null,
-      copyError: null
-    })
-    expect(hardlink).not.toHaveBeenCalled()
-    expect(readFileSync(path.join(destination, 'nested', 'file'), 'utf8')).toBe('contents')
-    expect(readlinkSync(path.join(destination, 'relative-link'))).toBe(path.join('nested', 'file'))
-  })
+  it.skipIf(!symlinksAvailable)(
+    'copies bytes on a platform with no private mechanism at all',
+    () => {
+      const { root, source } = makeTree()
+      const destination = path.join(root, 'private')
+      const hardlink = vi.fn()
+      expect(copyPrivateTree(source, destination, { platform: 'win32', hardlink })).toEqual({
+        mechanism: null,
+        copyError: null
+      })
+      expect(hardlink).not.toHaveBeenCalled()
+      expect(readFileSync(path.join(destination, 'nested', 'file'), 'utf8')).toBe('contents')
+      expect(readlinkSync(path.join(destination, 'relative-link'))).toBe(
+        path.join('nested', 'file')
+      )
+    }
+  )
 
   it('reports the private mechanism it used', () => {
     const { root, source } = makeTree()

@@ -142,6 +142,29 @@ describe('pnpm diff format', () => {
     expect(patch).toContain('--- a/src/Widget.ts')
     expect(patch).toContain('+++ b/src/Widget.ts')
   })
+  it('normalizes quoted Windows headers without rewriting hunk bodies', () => {
+    const windowsDiff = [
+      'diff --git "a/lib\\widget.js" "b/lib\\widget.js"',
+      '--- "a/lib\\widget.js"',
+      '+++ "b/lib\\widget.js"',
+      '@@ -1 +1 @@',
+      '--- \\server\\deleted',
+      '+++ \\server\\added',
+      ''
+    ].join('\n')
+
+    expect(normalizePnpmDiff(windowsDiff, '/pristine', '/patched')).toBe(
+      [
+        'diff --git a/lib/widget.js b/lib/widget.js',
+        '--- a/lib/widget.js',
+        '+++ b/lib/widget.js',
+        '@@ -1 +1 @@',
+        '--- \\server\\deleted',
+        '+++ \\server\\added',
+        ''
+      ].join('\n')
+    )
+  })
 
   it('drops a trailing no-newline marker and .DS_Store entries', () => {
     const withMarker = 'diff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b\n\\ No newline at end of file\n'
