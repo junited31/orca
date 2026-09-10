@@ -216,7 +216,11 @@ describe('round-trip stability', () => {
     await writeTree(replay, PRISTINE)
     const patchFile = path.join(root, 'round-trip.patch')
     await writeFile(patchFile, patch)
-    execFileSync('git', ['apply', '-p1', '--whitespace=nowarn', patchFile], { cwd: replay })
+    execFileSync(
+      'git',
+      ['-c', 'core.autocrlf=false', 'apply', '-p1', '--whitespace=nowarn', patchFile],
+      { cwd: replay, env: pnpmDiffEnvironment() }
+    )
 
     expect(await readFile(path.join(replay, 'lib/widget.js'), 'utf8')).toBe(
       PATCHED['lib/widget.js']
@@ -235,7 +239,11 @@ describe('round-trip stability', () => {
 
     const replay = path.join(root, 'replay')
     await writeTree(replay, PRISTINE)
-    execFileSync('git', ['apply', '-p1', '--whitespace=nowarn', patchFile], { cwd: replay })
+    execFileSync(
+      'git',
+      ['-c', 'core.autocrlf=false', 'apply', '-p1', '--whitespace=nowarn', patchFile],
+      { cwd: replay, env: pnpmDiffEnvironment() }
+    )
 
     expect(await readFile(path.join(replay, 'src/Widget.ts'), 'utf8')).toBe(
       PATCHED['src/Widget.ts']

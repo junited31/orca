@@ -401,12 +401,14 @@ function regeneratePackage(packageEntry, manifest, context) {
   run(
     'git',
     [
+      '-c',
+      'core.autocrlf=false',
       'apply',
       '--whitespace=nowarn',
       ...(packageDir === '.' ? [] : [`--directory=${packageDir}`]),
       path.join(repoRoot, packageEntry.sourcePatch)
     ],
-    { cwd: upstreamRoot }
+    { cwd: upstreamRoot, env: pnpmDiffEnvironment() }
   )
   buildPackage(upstreamRoot, packageEntry, manifest)
 
