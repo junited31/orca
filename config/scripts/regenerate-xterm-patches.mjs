@@ -19,6 +19,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   CHECKOUT_DIFF_FLAGS,
+  GIT_EOL_ISOLATION,
   PNPM_DIFF_FLAGS,
   assertSourceDerivationsAgree,
   escapeRegExp,
@@ -174,12 +175,11 @@ function run(command, args, options = {}) {
     ...options
   })
 }
-const GIT_EOL_ISOLATION = ['-c', 'core.autocrlf=false', '-c', 'core.eol=lf']
-
 function runGit(args, options = {}) {
+  const { ambientConfig = false, env, ...runOptions } = options
   return run('git', [...GIT_EOL_ISOLATION, ...args], {
-    ...options,
-    env: pnpmDiffEnvironment(options.env ?? process.env)
+    ...runOptions,
+    env: ambientConfig ? (env ?? process.env) : pnpmDiffEnvironment(env ?? process.env)
   })
 }
 
@@ -229,10 +229,14 @@ function ensureUpstreamCheckout(manifest, workDir) {
   if (!existsSync(path.join(root, '.git'))) {
     mkdirSync(root, { recursive: true })
     runGit(['init', '--quiet'], { cwd: root })
-    runGit(['remote', 'add', 'origin', repository], { cwd: root })
+    runGit(['remote', 'add', 'origin', repository], { cwd: root, ambientConfig: true })
   }
   if (!hasCommit(root, commit)) {
-    runGit(['fetch', '--depth=1', 'origin', commit], { cwd: root, stdio: 'inherit' })
+    runGit(['fetch', '--depth=1', 'origin', commit], {
+      cwd: root,
+      stdio: 'inherit',
+      ambientConfig: true
+    })
   }
   runGit(['checkout', '--quiet', '--detach', commit], { cwd: root })
   runGit(['reset', '--quiet', '--hard', commit], { cwd: root })

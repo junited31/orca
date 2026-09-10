@@ -6,6 +6,9 @@
  * tests exercise it with no network and no build.
  */
 
+/** Git settings that keep checked-out and diffed patch trees LF-normalized. */
+export const GIT_EOL_ISOLATION = ['-c', 'core.autocrlf=false', '-c', 'core.eol=lf']
+
 /**
  * Flags pnpm@12 passes to `git diff` in its own `diff_folders()`. A patch built
  * with anything else is a patch pnpm may re-diff differently on the next
@@ -57,6 +60,53 @@ export function escapeRegExp(value) {
 function trimSurroundingSlashes(value) {
   return value[0] === '/' || value.endsWith('/') ? value.replace(/^\/|\/$/g, '') : value
 }
+const GIT_SIMPLE_ESCAPES = {
+  '"': '"',
+  '\\': '\\',
+  a: '\x07',
+  b: '\b',
+  f: '\f',
+  n: '\n',
+  r: '\r',
+  t: '\t',
+  v: '\v'
+}
+
+function decodeGitQuotedPath(value) {
+  let decoded = ''
+  for (let index = 0; index < value.length;) {
+    if (value[index] !== '\\') {
+      decoded += value[index++]
+      continue
+    }
+    const escaped = value[index + 1]
+    if (escaped === undefined) {
+      decoded += '\\'
+      index += 1
+      continue
+    }
+    if (Object.hasOwn(GIT_SIMPLE_ESCAPES, escaped)) {
+      decoded += GIT_SIMPLE_ESCAPES[escaped]
+      index += 2
+      continue
+    }
+    if (/[0-7]/.test(escaped)) {
+      const bytes = []
+      while (value[index] === '\\' && /[0-7]/.test(value[index + 1] ?? '')) {
+        const octal = value.slice(index + 1, index + 4).match(/^[0-7]{1,3}/)[0]
+        bytes.push(Number.parseInt(octal, 8))
+        index += 1 + octal.length
+      }
+      decoded += Buffer.from(bytes).toString('utf8')
+      continue
+    }
+    // A raw Windows separator is not a C escape; preserve it for slash
+    // normalization below. Git's actual C escapes are handled above.
+    decoded += '\\'
+    index += 1
+  }
+  return decoded
+}
 
 function normalizeWindowsDiffHeaders(stdout) {
   let inHunk = false
@@ -80,7 +130,7 @@ function normalizeWindowsDiffHeaders(stdout) {
       }
       // Git quotes Windows paths because the backslashes are special. pnpm's
       // normalized patch uses portable slash-separated, unquoted paths instead.
-      return `${match[1]}${match[2]
+      return `${match[1]}${decodeGitQuotedPath(match[2])
         .replaceAll('\\', '/')
         .replace(/\/{2,}/g, '/')
         .replaceAll('"', '')}`

@@ -18,6 +18,7 @@ import {
 } from './regenerate-xterm-patches.mjs'
 import {
   CHECKOUT_DIFF_FLAGS,
+  GIT_EOL_ISOLATION,
   PNPM_DIFF_FLAGS,
   assertSourceDerivationsAgree,
   firstDifferenceIndex,
@@ -64,11 +65,11 @@ async function writeTree(root, files) {
   }
 }
 
-/** The three exported diff pieces, composed the way the generator composes them. */
+/** The three exported diff pieces, composed exactly as the generator composes them. */
 function diffFolders(folderA, folderB) {
   let stdout
   try {
-    stdout = execFileSync('git', [...PNPM_DIFF_FLAGS, folderA, folderB], {
+    stdout = execFileSync('git', [...GIT_EOL_ISOLATION, ...PNPM_DIFF_FLAGS, folderA, folderB], {
       encoding: 'utf8',
       env: pnpmDiffEnvironment(),
       stdio: ['ignore', 'pipe', 'pipe']
@@ -164,6 +165,20 @@ describe('pnpm diff format', () => {
         ''
       ].join('\n')
     )
+  })
+  it('decodes Git C-style escapes in quoted Windows headers', () => {
+    const escapedDiff = [
+      'diff --git "a/na\\303\\251me\\\\widget.js" "b/na\\303\\251me\\\\widget.js"',
+      '--- "a/na\\303\\251me\\\\widget.js"',
+      '+++ "b/na\\303\\251me\\\\widget.js"',
+      '@@ -1 +1 @@',
+      '--- \\303\\251me',
+      ''
+    ].join('\n')
+
+    const normalized = normalizePnpmDiff(escapedDiff, '/pristine', '/patched')
+    expect(normalized).toContain('diff --git a/naéme/widget.js b/naéme/widget.js')
+    expect(normalized).toContain('--- \\303\\251me')
   })
 
   it('drops a trailing no-newline marker and .DS_Store entries', () => {
