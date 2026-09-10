@@ -39,7 +39,7 @@ import {
 } from './versioned-agent-session-wire'
 
 // Why: a cold CI run extracts the baseline checkout before the first pairing.
-const SUITE_TIMEOUT_MS = 180_000
+const SUITE_TIMEOUT_MS = 300_000
 
 const SESSION = 'session-alpha'
 const WORKSPACE = 'workspace-1'
@@ -148,12 +148,13 @@ const STRUCTURED_CALLS: {
 let baselineRef: string
 let current: AgentSessionWireBuild
 let baseline: AgentSessionWireBuild
-let operations = 0
+let releasedCurrent: AgentSessionWireBuild
 
 beforeAll(async () => {
   baselineRef = resolveBaselineReleaseRef()
   current = await loadAgentSessionWireBuild(WORKING_TREE)
   baseline = await loadAgentSessionWireBuild(baselineRef)
+  releasedCurrent = await loadAgentSessionWireBuild('HEAD')
 }, SUITE_TIMEOUT_MS)
 
 /** `<13-digit ms>-<32 hex>`, the only shape the durable ledger accepts. */
@@ -508,7 +509,6 @@ describe('cross-version structured agent sessions', () => {
         // runner's module graph. It is the only place the "registered means
         // usable" claim is executable today, because the baseline registers none
         // of these methods — so it has to carry the whole manifest, not a sample.
-        const releasedCurrent = await loadAgentSessionWireBuild('HEAD')
         expect(releasedCurrent.capabilities).toContain(STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY)
         expect(
           releasedCurrent.methodNames.filter((name) => name.startsWith('agentSession.'))
