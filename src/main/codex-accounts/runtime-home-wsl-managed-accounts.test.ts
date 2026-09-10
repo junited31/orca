@@ -5,6 +5,7 @@ import type * as CodexConfigMirror from '../codex/codex-config-mirror'
 import type * as CodexHomePaths from '../codex/codex-home-paths'
 import type * as CodexPaneAccountRegistry from '../codex/codex-pane-account-registry'
 import type * as LegacyWslRuntimeAuthDrain from './legacy-wsl-runtime-auth-drain'
+import type * as WslCodexAuthBatchReader from './wsl-codex-auth-batch-reader'
 import type * as WslPaths from '../../shared/wsl-paths'
 import { createSettings } from './runtime-home-settings-test-fixtures'
 import {
